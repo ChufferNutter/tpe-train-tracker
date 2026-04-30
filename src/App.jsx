@@ -8,10 +8,7 @@ const TRANSPORT_API_APP_ID = import.meta.env.VITE_TRANSPORT_API_APP_ID || '';
 const TRANSPORT_API_APP_KEY = import.meta.env.VITE_TRANSPORT_API_APP_KEY || '';
 
 // Refresh strategy: 
-// 1. Manual "Refresh" button only for now to conserve 30-call daily limit.
-// 2. Launch plan: 15-minute interval (900,000 ms).
-const REFRESH_INTERVAL_MS = 15 * 60 * 1000; 
-const ENABLE_AUTO_REFRESH = false; // Set to true for launch
+// Manual "Refresh" button only to conserve 30-call daily limit.
 
 function App() {
   const [trains, setTrains] = useState([])
@@ -105,15 +102,6 @@ function App() {
 
   useEffect(() => {
     fetchTrains();
-    
-    let interval;
-    if (ENABLE_AUTO_REFRESH) {
-      interval = setInterval(fetchTrains, REFRESH_INTERVAL_MS);
-    }
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
   }, [fetchTrains]);
 
   return (
