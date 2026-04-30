@@ -10,9 +10,9 @@ A React web application to track TransPennine Express (TPE) trains on a map.
 
 ## API Limits & Usage
 **IMPORTANT:** The current TransportAPI account has a limit of **30 calls per day**.
-- The app is configured with a **manual refresh** button only for now.
-- Do NOT refresh excessively to avoid exhausting the limit.
-- Auto-refresh (15-minute interval) can be enabled in `src/App.jsx` by setting `ENABLE_AUTO_REFRESH = true`.
+- The app uses a **manual refresh** button in the header.
+- This is the primary way to fetch data to ensure the daily limit is not accidentally exhausted.
+- Each refresh uses 1 API call.
 
 ## Configuration
 The app uses the following environment variables (stored in `.env`):
