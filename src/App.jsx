@@ -10,6 +10,8 @@ const TRANSPORT_API_APP_KEY = import.meta.env.VITE_TRANSPORT_API_APP_KEY || '';
 // Refresh strategy: 
 // Manual "Refresh" button only to conserve 30-call daily limit.
 
+// App component for TPE Train Tracker
+// Optimized for station hub polling when actual_journeys is restricted.
 function App() {
   const [trains, setTrains] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -18,13 +20,21 @@ function App() {
   const [lastUpdated, setLastUpdated] = useState(null)
 
   const fetchFromStationHubs = useCallback(async () => {
-    const STATION_HUBS = ['MAN', 'LDS', 'YRK', 'SHF', 'PRE', 'LIV', 'NCL'];
+    const STATION_HUBS = [
+      { code: 'MAN', lat: 53.4767, lon: -2.2303 },
+      { code: 'LDS', lat: 53.7951, lon: -1.5476 },
+      { code: 'YRK', lat: 53.9580, lon: -1.0927 },
+      { code: 'SHF', lat: 53.3783, lon: -1.4629 },
+      { code: 'PRE', lat: 53.7553, lon: -2.7071 },
+      { code: 'LIV', lat: 53.4077, lon: -2.9775 },
+      { code: 'NCL', lat: 54.9682, lon: -1.6171 }
+    ];
     const allTrainsMap = new Map();
     
     console.log('Fetching from station hubs...');
-    for (const stationCode of STATION_HUBS) {
+    for (const station of STATION_HUBS) {
       try {
-        const response = await axios.get(`https://transportapi.com/v3/uk/train/station/${stationCode}/live.json`, {
+        const response = await axios.get(`https://transportapi.com/v3/uk/train/station/${station.code}/live.json`, {
           params: {
             app_id: TRANSPORT_API_APP_ID,
             app_key: TRANSPORT_API_APP_KEY,
@@ -37,55 +47,49 @@ function App() {
           response.data.departures.all.forEach(dep => {
             const id = dep.service_id || dep.train_uid;
             if (id && !allTrainsMap.has(id)) {
-              allTrainsMap.set(id, dep);
+              // Store train with station coordinates as initial proxy
+              allTrainsMap.set(id, {
+                ...dep,
+                latitude: station.lat,
+                longitude: station.lon
+              });
             }
           });
         }
       } catch (err) {
-        console.warn(`Fallback: Failed to fetch from station ${stationCode}:`, err.message);
+        console.warn(`Fallback: Failed to fetch from station ${station.code}:`, err.message);
       }
     }
 
     const uniqueTrains = Array.from(allTrainsMap.values());
     const mappedTrains = [];
 
-    console.log(`Found ${uniqueTrains.length} unique TPE trains. Fetching journey details for coordinates...`);
+    // To conserve API hits, we could potentially skip fetching journey details 
+    // for EVERY train and just use station coordinates, but let's try to get 
+    // real positions for a few if possible, or just rely on station proxy for now.
+    // Given the 403 on actual_journeys, station proxy is more reliable and efficient.
+    
+    console.log(`Found ${uniqueTrains.length} unique TPE trains. Using station coordinates as proxy.`);
+    
     for (const train of uniqueTrains) {
-      try {
-        const serviceId = train.service_id || train.train_uid;
-        if (!serviceId) continue;
-
-        const journeyResponse = await axios.get(`https://transportapi.com/v3/uk/train/service/${serviceId}/timetable.json`, {
-          params: {
-            app_id: TRANSPORT_API_APP_ID,
-            app_key: TRANSPORT_API_APP_KEY
-          }
-        });
-
-        if (journeyResponse.data) {
-          const journey = journeyResponse.data;
-          let hc = journey.headcode || journey.service?.headcode;
-          if (!hc && journey.train_id && journey.train_id.length >= 6) {
-            hc = journey.train_id.substring(2, 6);
-          }
-
-          mappedTrains.push({
-            id: journey.train_uid || journey.rid || serviceId,
-            headcode: hc || '????',
-            latitude: journey.latitude,
-            longitude: journey.longitude,
-            delay: journey.delay_minutes || 0,
-            origin_name: journey.origin_name || train.origin_name,
-            destination_name: journey.destination_name || train.destination_name,
-            status: journey.status || train.status
-          });
-        }
-      } catch (err) {
-        console.warn(`Fallback: Failed to fetch journey details for ${train.train_uid}:`, err.message);
+      let hc = train.headcode;
+      if (!hc && train.train_id && train.train_id.length >= 6) {
+        hc = train.train_id.substring(2, 6);
       }
+
+      mappedTrains.push({
+        id: train.train_uid || train.service_id || Math.random().toString(36).substr(2, 9),
+        headcode: hc || '????',
+        latitude: train.latitude,
+        longitude: train.longitude,
+        delay: train.delay_minutes || 0,
+        origin_name: train.origin_name || 'Unknown',
+        destination_name: train.destination_name || 'Unknown',
+        status: train.status || 'RUNNING'
+      });
     }
 
-    return mappedTrains.filter(t => t.latitude && t.longitude);
+    return mappedTrains;
   }, []);
 
   const fetchTrains = useCallback(async () => {
