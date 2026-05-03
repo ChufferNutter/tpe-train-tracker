@@ -1,4 +1,4 @@
-# TPE Train Tracker Prototype
+# TPE Train Tracker Prototype (Vercel Optimized)
 
 A React web application to track TransPennine Express (TPE) trains on a map.
 
